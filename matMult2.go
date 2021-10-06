@@ -1,29 +1,10 @@
-package main
+package matMult2
 
 import (
 	"fmt"
 )
 
 type Matrix [][]float64
-
-/* 
-* first concurrent algorithm will be the following
-* have Go routines each multiplying elements of the matrix
-* before adding them together. i.e.
-* 	Go routine: A[0][0] * B[0][0]
-* 	Go routine: A[0][1] * B[1][0]
-*	so on and once a row is done, add them together
-*/
-func firstAlgorithm(a, b *Matrix) *Matrix {
-	rowsa, rowsb := len(*a), len(*b)
-	colsa, colsb := len((*a)[0]), len((*b)[0])
-	fmt.Println("Matrix A: ", rowsa, " x ", colsa)
-	fmt.Println("Matrix B: ", rowsb, " x ", colsb)
-	fmt.Println("Therefore Matrix C: ", rowsa, " x ", colsb)
-
-	c := Matrix{{}}
-	return &c 
-}
 
 /* 
 * second concurrent algorithm will be the following
@@ -34,14 +15,23 @@ func firstAlgorithm(a, b *Matrix) *Matrix {
 *	so on and once an element is calculated, add them together
 */
 func secondAlgorithm(a, b *Matrix) *Matrix {
-	rowsa, _ := len(*a), len(*b)
+	rowsa, rowsb := len(*a), len(*b)
 	_, colsb := len((*a)[0]), len((*b)[0])
 	n := numElementsInMatrix(rowsa, colsb)
 
+	c := Matrix{{}}
+
 	for i := 0; i < n; i++ {
 		
+		go func () {
+			sum := 0
+			for k := 0; k < rowsb; k++ {
+				sum += *a[][k] * *b[k][]
+			}
+		}()
+
 	}
-	c := Matrix{{}}
+	
 	return &c 
 }
 
