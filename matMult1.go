@@ -2,23 +2,24 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"sync"
 )
 
 type Matrix [][]float64
 
-func algorithm(row, col []float64, wg *sync.WaitGroup, elements chan<- float64) {
+func algorithm(row, col *[]float64, wg *sync.WaitGroup, elements chan<- float64) {
 	sum := 0.0
-	for i := range row {
-		sum += row[i] * col[i]
+	for i := range *row {
+		sum += (*row)[i] * (*col)[i]
 	}
 	elements <- sum
 	wg.Done()
 }
 
 func main() {
-	a := Matrix{{1, 2}, {2, 3}, {3, 4}}
-    b := Matrix{{2, 3,4}, {5, 6,7}}
+	a := Matrix{{7, 8, 2}, {1, 9, 21}, {34, 14, 8}, {1, 4, 11}, {21, 4, 2}}
+    b := Matrix{{2, 11, 17, 21}, {3, 6, 8, 91}, {3, 4, 5, 2}}
 
 	fmt.Println("Matrix A")
 	printMatrix(&a)
@@ -29,7 +30,12 @@ func main() {
 	//start
 
 	rowsa, rowsb := len(a), len(b)
-	_, colsb := len((a)[0]), len((b)[0])
+	colsa, colsb := len((a)[0]), len((b)[0])
+
+	if colsa != rowsb {
+		fmt.Println("Matrices cannot be multiplied!")
+		os.Exit(3)
+	}
 
 	var wg sync.WaitGroup
 
@@ -53,7 +59,7 @@ func main() {
 			currentColData = append(currentColData, b[i][currentCol])
 		}
 		wg.Add(1)
-		go algorithm(a[currentRow], currentColData, &wg, elements)
+		go algorithm(&a[currentRow], &currentColData, &wg, elements)
 		wg.Wait()
 
 		currentCol += 1
@@ -62,14 +68,22 @@ func main() {
 
 	fmt.Println("Multiply Matrices A and B to get Matrix C:")
 
-	for i := 0; i < numElementsInResultMatrix; i++ {
-		if i % colsb == 0 {
-			fmt.Println()
+	c := make([][]float64, rowsa)
+	for i := 0; i < rowsa; i++ {
+		row := make([]float64, colsb)
+		for j := 0; j < colsb; j++ {
+			row[j] = <-elements
 		}
-		fmt.Print(<-elements, " ")
+		c[i] = row
 	}
+	result := Matrix(c)
+	printMatrix(&result)
 	
-	//expected answer is:  Matrix{{12,15,18}, {19,24,29}, {26,33,40}}
+	//expected answer is: Matrix{{44, 	133, 	193, 	879}, 
+	//							 {92, 	149, 	194, 	882}, 
+	//							 {134,  490, 	730, 	2004}, 
+	//							 {47, 	79, 	104, 	407}, 
+	//							 {60, 	263, 	399, 	809}}
 
 	fmt.Print("\nFinished")
 }
@@ -79,22 +93,12 @@ func printMatrix(m* Matrix) {
 	for i := 0; i < len(*m); i++ {
         for j := 0; j < len((*m)[0]); j++ {
             fmt.Print((*m)[i][j])
-			fmt.Print(" ")
+			fmt.Print("\t")
         }
         fmt.Print("\n")
     } 
 	fmt.Print("\n")
 }
-
-
-	
-	// fmt.Println("Matrix A: ", rowsa, " x ", colsa)
-	// fmt.Println("Matrix B: ", rowsb, " x ", colsb)
-	// fmt.Println("Therefore Matrix C: ", rowsa, " x ", colsb)
-
-	// c := Matrix{{}}
-	// return &c 
-
 
 /* 
 * first concurrent algorithm will be the following
