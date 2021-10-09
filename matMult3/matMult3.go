@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 )
 
 type Matrix [][]float64
@@ -28,6 +29,7 @@ func main() {
 	printMatrix(&b)
 
 	//start
+	start := time.Now()
 
 	rowsa, rowsb := len(a), len(b)
 	colsa, colsb := len((a)[0]), len((b)[0])
@@ -78,6 +80,9 @@ func main() {
 	}
 	result := Matrix(c)
 	printMatrix(&result)
+
+	//end
+	elapsed := time.Since(start)
 	
 	//expected answer is: Matrix{{44, 	133, 	193, 	879}, 
 	//							 {92, 	149, 	194, 	882}, 
@@ -85,7 +90,7 @@ func main() {
 	//							 {47, 	79, 	104, 	407}, 
 	//							 {60, 	263, 	399, 	809}}
 
-	fmt.Print("\nFinished")
+	fmt.Print("\nFinished. Elapsed Time: ", elapsed)
 }
 
 //Helper functions
