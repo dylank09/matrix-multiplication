@@ -24,7 +24,6 @@ func algorithm(row *[]float64, cols *Matrix, wg *sync.WaitGroup, rows chan<- []f
 		sum = 0.0
 		for k, r := range *row {
 			sum += r * currentColData[k]
-			fmt.Println("sum: ", sum)
 		}
 		result[i] = sum
 		
@@ -101,12 +100,3 @@ func printMatrix(m* Matrix) {
     } 
 	fmt.Print("\n")
 }
-
-/* 
-* first concurrent algorithm will be the following
-* have Go routines each multiplying elements of the matrix
-* before adding them together. i.e.
-* 	Go routine: A[0][0] * B[0][0]
-* 	Go routine: A[0][1] * B[1][0]
-*	so on and once a row is done, add them together
-*/
