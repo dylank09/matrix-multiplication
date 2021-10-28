@@ -3,52 +3,54 @@ package main
 import (
 	"fmt"
 	"os"
-	"sync"
 	"time"
 )
 
 type Matrix [][]float64
 
-func algorithm(row, col *[]float64, wg *sync.WaitGroup, elements chan<- float64) {
+func rowByCol(currentRow, currentCol *[]float64, resultMatrix *Matrix, resultRowIndex, resultColIndex int) {
 	sum := 0.0
-	for i := range *row {
-		sum += (*row)[i] * (*col)[i]
+	for i := range *currentRow {
+		sum += (*currentRow)[i] * (*currentCol)[i]
 	}
-	elements <- sum
-	wg.Done()
+
+	(*resultMatrix)[resultRowIndex][resultColIndex] = sum //fills in the element in the resulting matrix by multiplying row of first matrix by column in second matrix
 }
 
 func main() {
-	a := Matrix{{7, 8, 2}, {1, 9, 21}, {34, 14, 8}, {1, 4, 11}, {21, 4, 2}}
-    b := Matrix{{2, 11, 17, 21}, {3, 6, 8, 91}, {3, 4, 5, 2}}
+	matrixA := Matrix{{7, 8, 2}, {1, 9, 21}, {34, 14, 8}, {1, 4, 11}, {21, 4, 2}}
+    matrixB := Matrix{{2, 11, 17, 21}, {3, 6, 8, 91}, {3, 4, 5, 2}}
 
 	fmt.Println("Matrix A")
-	printMatrix(&a)
+	printMatrix(&matrixA)
 	
 	fmt.Println("Matrix B")
-	printMatrix(&b)
+	printMatrix(&matrixB)
 
-	//start
-	start := time.Now()
-
-	rowsa, rowsb := len(a), len(b)
-	colsa, colsb := len((a)[0]), len((b)[0])
+	rowsa, rowsb := len(matrixA), len(matrixB)
+	colsa, colsb := len((matrixA)[0]), len((matrixB)[0])
 
 	if colsa != rowsb {
 		fmt.Println("Matrices cannot be multiplied!")
 		os.Exit(3)
 	}
 
-	var wg sync.WaitGroup
+	//start
+	start := time.Now()
+
+	matrixC := make([][]float64, rowsa)
+	for i := range matrixC {
+		matrixC[i] = make([]float64, colsb)
+	}
+
+	resultMatrix := Matrix(matrixC)
 
 	numElementsInResultMatrix := rowsa * colsb
-	elements := make(chan float64, numElementsInResultMatrix)
-
-	currentRow := 0
+	currentRowIndex := 0
 	currentCol := 0
 	for i := 0; i < numElementsInResultMatrix; i++ {
 		if i != 0 && i % colsb == 0 { //*
-			currentRow += 1
+			currentRowIndex += 1
 		} 
 
 		currentColData := make([]float64, rowsb)
@@ -57,31 +59,19 @@ func main() {
 		}
 		
 		for i := 0; i < rowsb; i++ {
-			currentColData[i] = b[i][currentCol]
+			currentColData[i] = matrixB[i][currentCol]
 		}
-		wg.Add(1)
-		go algorithm(&a[currentRow], &currentColData, &wg, elements)
-		wg.Wait()
+
+		go rowByCol(&matrixA[currentRowIndex], &currentColData, &resultMatrix, currentRowIndex, currentCol)
 
 		currentCol += 1
-
 	}
-
-	fmt.Println("Multiply Matrices A and B to get Matrix C:")
-
-	c := make([][]float64, rowsa)
-	for i := 0; i < rowsa; i++ {
-		row := make([]float64, colsb)
-		for j := 0; j < colsb; j++ {
-			row[j] = <-elements
-		}
-		c[i] = row
-	}
-	result := Matrix(c)
-	printMatrix(&result)
 
 	//end
 	elapsed := time.Since(start)
+
+	fmt.Println("Multiply Matrices A and B to get Matrix C:")
+	printMatrix(&resultMatrix)
 	
 	//expected answer is: Matrix{{44, 	133, 	193, 	879}, 
 	//							 {92, 	149, 	194, 	882}, 
@@ -90,6 +80,8 @@ func main() {
 	//							 {60, 	263, 	399, 	809}}
 
 	fmt.Print("\nFinished. Elapsed Time: ", elapsed)
+	
+	time.Sleep(1* time.Second)
 }
 
 //Helper functions

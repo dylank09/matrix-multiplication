@@ -3,13 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"sync"
 	"time"
 )
 
 type Matrix [][]float64
 
-func algorithm(row *[]float64, cols *Matrix, wg *sync.WaitGroup, rows chan<- []float64) {
+func rowByFullMatrix(row *[]float64, cols, resultMatrix *Matrix, rowNum int) {
 	
 	result := make([] float64, len((*cols)[0])) //new row will be same size as row in mat A
 	sum := 0.0
@@ -28,8 +27,7 @@ func algorithm(row *[]float64, cols *Matrix, wg *sync.WaitGroup, rows chan<- []f
 		result[i] = sum
 		
 	}
-	rows <- result
-	wg.Done()
+	(*resultMatrix)[rowNum] = result //returns full returning row on the new matrix
 
 }
 
@@ -43,42 +41,39 @@ func main() {
 	fmt.Println("Matrix B")
 	printMatrix(&b)
 
-	//start
-	start := time.Now()
-
+	
 	rowsa, rowsb := len(a), len(b)
-	colsa, _ := len((a)[0]), len((b)[0])
+	colsa, colsb := len((a)[0]), len((b)[0])
 
 	if colsa != rowsb {
 		fmt.Println("Matrices cannot be multiplied!")
 		os.Exit(3)
 	}
 
-	var wg sync.WaitGroup
+	//start
+	start := time.Now()
+
+	matrixC := make([][]float64, rowsa)
+	for i := range matrixC {
+		matrixC[i] = make([]float64, colsb)
+	}
+
+	resultMatrix := Matrix(matrixC)
 
 	numRowsInResultMatrix := rowsa
-	rows := make(chan []float64, numRowsInResultMatrix)
+
 	for i := 0; i < numRowsInResultMatrix; i++ {
 		
-		wg.Add(1)
-		go algorithm(&a[i], &b, &wg, rows)
-		wg.Wait()
+		go rowByFullMatrix(&a[i], &b, &resultMatrix, i)
 
 	}
-
-	fmt.Println("Multiply Matrices A and B to get Matrix C:")
-
-	c := make([][]float64, rowsa)
-	for i := 0; i < numRowsInResultMatrix; i++ {
-		
-		c[i] = <- rows
-
-	}
-	result := Matrix(c)
-	printMatrix(&result)
 
 	//end
 	elapsed := time.Since(start)
+
+	fmt.Println("Multiply Matrices A and B to get Matrix C:")
+
+	printMatrix(&resultMatrix)
 	
 	//expected answer is: Matrix{{44, 	133, 	193, 	879}, 
 	//							 {92, 	149, 	194, 	882}, 
@@ -86,7 +81,9 @@ func main() {
 	//							 {47, 	79, 	104, 	407}, 
 	//							 {60, 	263, 	399, 	809}}
 
-	fmt.Print("\nFinished. Elapsed Time: ", elapsed)
+	time.Sleep(1* time.Second)
+
+	fmt.Print("\nFinished. Elapsed Time: ", elapsed.Nanoseconds(), " Nanoseconds")
 }
 
 //Helper functions
