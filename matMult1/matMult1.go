@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
+	"runtime"
 	"time"
 )
 
@@ -18,14 +20,8 @@ func rowByCol(currentRow, currentCol *[]float64, resultMatrix *Matrix, resultRow
 }
 
 func main() {
-	matrixA := Matrix{{7, 8, 2}, {1, 9, 21}, {34, 14, 8}, {1, 4, 11}, {21, 4, 2}}
-    matrixB := Matrix{{2, 11, 17, 21}, {3, 6, 8, 91}, {3, 4, 5, 2}}
-
-	fmt.Println("Matrix A")
-	printMatrix(&matrixA)
 	
-	fmt.Println("Matrix B")
-	printMatrix(&matrixB)
+	matrixA, matrixB := makeMatrix(1024, 900), makeMatrix(900, 1500)
 
 	rowsa, rowsb := len(matrixA), len(matrixB)
 	colsa, colsb := len((matrixA)[0]), len((matrixB)[0])
@@ -34,6 +30,8 @@ func main() {
 		fmt.Println("Matrices cannot be multiplied!")
 		os.Exit(3)
 	}
+
+	runtime.GOMAXPROCS(4)
 
 	//start
 	start := time.Now()
@@ -70,18 +68,9 @@ func main() {
 	//end
 	elapsed := time.Since(start)
 
-	fmt.Println("Multiply Matrices A and B to get Matrix C:")
-	printMatrix(&resultMatrix)
+	fmt.Print("\nFinished. Elapsed Time: ", elapsed.Microseconds(), " Microseconds")
 	
-	//expected answer is: Matrix{{44, 	133, 	193, 	879}, 
-	//							 {92, 	149, 	194, 	882}, 
-	//							 {134,  490, 	730, 	2004}, 
-	//							 {47, 	79, 	104, 	407}, 
-	//							 {60, 	263, 	399, 	809}}
-
-	fmt.Print("\nFinished. Elapsed Time: ", elapsed)
-	
-	time.Sleep(1* time.Second)
+	time.Sleep(4* time.Second)
 }
 
 //Helper functions
@@ -94,6 +83,17 @@ func printMatrix(m* Matrix) {
         fmt.Print("\n")
     } 
 	fmt.Print("\n")
+}
+
+func makeMatrix(rows, cols int) (m Matrix) {
+	m = make([][]float64, rows)
+	for i := range m {
+		m[i] = make([]float64, cols)
+		for j := range m[i] {
+			m[i][j] = float64(rand.Intn(100))
+		}
+	}
+	return
 }
 
 /* 
