@@ -4,19 +4,20 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"runtime"
+	"sync"
 	"time"
 )
 
 type Matrix [][]float64
 
-func rowByCol(currentRow, currentCol *[]float64, resultMatrix *Matrix, resultRowIndex, resultColIndex int) {
+func rowByCol(currentRow, currentCol *[]float64, resultMatrix *Matrix, resultRowIndex, resultColIndex int, wg *sync.WaitGroup) {
 	sum := 0.0
 	for i := range *currentRow {
 		sum += (*currentRow)[i] * (*currentCol)[i]
 	}
 
 	(*resultMatrix)[resultRowIndex][resultColIndex] = sum //fills in the element in the resulting matrix by multiplying row of first matrix by column in second matrix
+	wg.Done()
 }
 
 func main() {
@@ -31,7 +32,7 @@ func main() {
 		os.Exit(3)
 	}
 
-	runtime.GOMAXPROCS(4)
+	// runtime.GOMAXPROCS(4)
 
 	//start
 	start := time.Now()
@@ -46,6 +47,11 @@ func main() {
 	numElementsInResultMatrix := rowsa * colsb
 	currentRowIndex := 0
 	currentCol := 0
+
+	var wg sync.WaitGroup
+
+	wg.Add(numElementsInResultMatrix)
+
 	for i := 0; i < numElementsInResultMatrix; i++ {
 		if i != 0 && i % colsb == 0 { //*
 			currentRowIndex += 1
@@ -56,21 +62,21 @@ func main() {
 			currentCol = 0
 		}
 		
-		for i := 0; i < rowsb; i++ {
+		for c := 0; c < rowsb; c++ {
 			currentColData[i] = matrixB[i][currentCol]
 		}
 
-		go rowByCol(&matrixA[currentRowIndex], &currentColData, &resultMatrix, currentRowIndex, currentCol)
+		go rowByCol(&matrixA[currentRowIndex], &currentColData, &resultMatrix, currentRowIndex, currentCol, &wg)
 
 		currentCol += 1
 	}
+	wg.Wait()
 
 	//end
 	elapsed := time.Since(start)
 
 	fmt.Print("\nFinished. Elapsed Time: ", elapsed.Microseconds(), " Microseconds")
 	
-	time.Sleep(4* time.Second)
 }
 
 //Helper functions

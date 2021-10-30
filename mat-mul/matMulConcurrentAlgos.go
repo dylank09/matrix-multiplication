@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"runtime"
 	"sync"
 	"time"
 )
@@ -12,17 +11,20 @@ import (
 type Matrix [][]float64
 
 func rowByColAlgo1(currentRow, currentCol *[]float64, resultMatrix *Matrix, resultRowIndex, resultColIndex int, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	sum := 0.0
 	for i := range *currentRow {
 		sum += (*currentRow)[i] * (*currentCol)[i]
 	}
 
 	(*resultMatrix)[resultRowIndex][resultColIndex] = sum //fills in the element in the resulting matrix by multiplying row of first matrix by column in second matrix
-	wg.Done()
 }
 
 func rowByFullMatrixAlgo2(row *[]float64, cols, resultMatrix *Matrix, rowNum int, wg *sync.WaitGroup) {
 	
+	defer wg.Done()
+
 	result := make([] float64, len((*cols)[0])) //new row will be same size as row in mat A
 	sum := 0.0
 	for i := 0; i < len((*cols)[0]); i++ {
@@ -41,7 +43,6 @@ func rowByFullMatrixAlgo2(row *[]float64, cols, resultMatrix *Matrix, rowNum int
 		
 	}
 	(*resultMatrix)[rowNum] = result //returns full returning row on the new matrix
-	wg.Done()
 
 }
 
@@ -56,7 +57,7 @@ func main() {
 		os.Exit(3)
 	}
 
-	runtime.GOMAXPROCS(4)
+	// runtime.GOMAXPROCS(4)
 
 	//start sequential
 	fmt.Println("Sequential Algorithm")
@@ -165,6 +166,13 @@ func main() {
 	//end algorithm 2
 
 	//start algorithm 3
+
+	//end algorithm 3
+
+	//test equality
+
+	fmt.Println("Check result 1: ", compareMatrices(&resultMatrix0, &resultMatrix1))
+	fmt.Println("Check result 2: ", compareMatrices(&resultMatrix0, &resultMatrix2))
 }
 
 //Helper functions
@@ -188,4 +196,17 @@ func makeMatrix(rows, cols int) (m Matrix) {
 		}
 	}
 	return
+}
+
+func compareMatrices(a, b *Matrix) bool {
+	//assumes the matrices are the same dimensions
+	result := true
+	for i := 0; i < len(*a); i++ {
+		for j := 0; j < len((*a)[i]); j++ {
+			if (*a)[i][j] != (*b)[i][j] {
+				result = false
+			}
+		}
+	}
+	return result
 }
