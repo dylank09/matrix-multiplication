@@ -2,35 +2,40 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
-	"sync"
+	"runtime"
 	"time"
 )
 
 type Matrix [][]float64
 
-func algorithm(row, col *[]float64, wg *sync.WaitGroup, elements chan<- float64) {
+func rowByFullMatrix(row *[]float64, cols, resultMatrix *Matrix, rowNum int) {
+	
+	result := make([] float64, len((*cols)[0])) //new row will be same size as row in mat A
 	sum := 0.0
-	for i := range *row {
-		sum += (*row)[i] * (*col)[i]
+	for i := 0; i < len((*cols)[0]); i++ {
+
+		currentColData := make([]float64, len(*cols))
+		for j := 0; j < len(*cols); j++ {
+			currentColData[j] = (*cols)[j][i]
+		}
+
+		//multiply the row by the current column to get an element
+		sum = 0.0
+		for k, r := range *row {
+			sum += r * currentColData[k]
+		}
+		result[i] = sum
+		
 	}
-	elements <- sum
-	wg.Done()
+	(*resultMatrix)[rowNum] = result //returns full returning row on the new matrix
+
 }
 
 func main() {
-	a := Matrix{{7, 8, 2}, {1, 9, 21}, {34, 14, 8}, {1, 4, 11}, {21, 4, 2}}
-    b := Matrix{{2, 11, 17, 21}, {3, 6, 8, 91}, {3, 4, 5, 2}}
-
-	fmt.Println("Matrix A")
-	printMatrix(&a)
+	a, b := makeMatrix(1024, 900), makeMatrix(900, 1500)
 	
-	fmt.Println("Matrix B")
-	printMatrix(&b)
-
-	//start
-	start := time.Now()
-
 	rowsa, rowsb := len(a), len(b)
 	colsa, colsb := len((a)[0]), len((b)[0])
 
@@ -39,58 +44,32 @@ func main() {
 		os.Exit(3)
 	}
 
-	var wg sync.WaitGroup
+	runtime.GOMAXPROCS(1)
 
-	numElementsInResultMatrix := rowsa * colsb
-	elements := make(chan float64, numElementsInResultMatrix)
+	//start
+	start := time.Now()
 
-	currentRow := 0
-	currentCol := 0
-	for i := 0; i < numElementsInResultMatrix; i++ {
-		if i != 0 && i % colsb == 0 { //*
-			currentRow += 1
-		} 
+	matrixC := make([][]float64, rowsa)
+	for i := range matrixC {
+		matrixC[i] = make([]float64, colsb)
+	}
 
-		currentColData := make([]float64, rowsb)
-		currentColData = nil
-		if currentCol >= colsb {
-			currentCol = 0
-		}
+	resultMatrix := Matrix(matrixC)
+
+	numRowsInResultMatrix := rowsa
+
+	for i := 0; i < numRowsInResultMatrix; i++ {
 		
-		for i := 0; i < rowsb; i++ {
-			currentColData = append(currentColData, b[i][currentCol])
-		}
-		wg.Add(1)
-		go algorithm(&a[currentRow], &currentColData, &wg, elements)
-		wg.Wait()
-
-		currentCol += 1
+		go rowByFullMatrix(&a[i], &b, &resultMatrix, i)
 
 	}
-
-	fmt.Println("Multiply Matrices A and B to get Matrix C:")
-
-	c := make([][]float64, rowsa)
-	for i := 0; i < rowsa; i++ {
-		row := make([]float64, colsb)
-		for j := 0; j < colsb; j++ {
-			row[j] = <-elements
-		}
-		c[i] = row
-	}
-	result := Matrix(c)
-	printMatrix(&result)
 
 	//end
 	elapsed := time.Since(start)
-	
-	//expected answer is: Matrix{{44, 	133, 	193, 	879}, 
-	//							 {92, 	149, 	194, 	882}, 
-	//							 {134,  490, 	730, 	2004}, 
-	//							 {47, 	79, 	104, 	407}, 
-	//							 {60, 	263, 	399, 	809}}
 
-	fmt.Print("\nFinished. Elapsed Time: ", elapsed)
+	time.Sleep(1* time.Second)
+
+	fmt.Print("\nFinished. Elapsed Time: ", elapsed.Microseconds(), " Microseconds")
 }
 
 //Helper functions
@@ -105,11 +84,13 @@ func printMatrix(m* Matrix) {
 	fmt.Print("\n")
 }
 
-/* 
-* first concurrent algorithm will be the following
-* have Go routines each multiplying elements of the matrix
-* before adding them together. i.e.
-* 	Go routine: A[0][0] * B[0][0]
-* 	Go routine: A[0][1] * B[1][0]
-*	so on and once a row is done, add them together
-*/
+func makeMatrix(rows, cols int) (m Matrix) {
+	m = make([][]float64, rows)
+	for i := range m {
+		m[i] = make([]float64, cols)
+		for j := range m[i] {
+			m[i][j] = float64(rand.Intn(100))
+		}
+	}
+	return
+}
