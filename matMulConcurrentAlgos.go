@@ -21,15 +21,17 @@ func rowByColAlgo1(currentRow, currentCol *[]float64, resultMatrix *Matrix, resu
 	(*resultMatrix)[resultRowIndex][resultColIndex] = sum //fills in the element in the resulting matrix by multiplying row of first matrix by column in second matrix
 }
 
-func rowByFullMatrixAlgo2(row *[]float64, cols, resultMatrix *Matrix, rowNum int, wg *sync.WaitGroup) {
+func rowByFullMatrixAlgo2(row *[]float64, matB, resultMatrix *Matrix, rowNum int, wg *sync.WaitGroup) {
 	
 	defer wg.Done()
 
-	result := make([] float64, len(*cols)) //new row will be same size as row in mat A
-	sum := 0.0
-	for i := 0; i < len(*cols); i++ {
+	numColsInB := len(*matB)
 
-		currentColData := (*cols)[i]
+	result := make([] float64, numColsInB) //new row will be same size as row in mat A
+	sum := 0.0
+	for i := 0; i < numColsInB; i++ {
+
+		currentColData := (*matB)[i]
 
 		//multiply the row by the current column to get an element
 		sum = 0.0
@@ -43,23 +45,47 @@ func rowByFullMatrixAlgo2(row *[]float64, cols, resultMatrix *Matrix, rowNum int
 
 }
 
-func rowByColGetMatrixAlgo3(resultMatrix *Matrix, colA, rowB *[]float64, wg *sync.WaitGroup) {
+func colByFullMatrixAlgo3(col *[]float64, matA, resultMatrix *Matrix, colNum int, wg *sync.WaitGroup) {
+
+	numRowsInA := len(*matA)
+
+	result := make([] float64, numRowsInA) //new col will be same size as row in mat A
+	sum := 0.0
+	for i := 0; i < numRowsInA; i++ {
+
+		currentRowData := (*matA)[i]
+
+		//multiply the row by the current column to get an element
+		sum = 0.0
+		for index, c := range *col {
+			sum += c * currentRowData[index]
+		}
+		result[i] = sum
+		
+	}
+
+	for index, val := range result {
+		(*resultMatrix)[index][colNum] = val
+	}
+
+	wg.Done()
+}
+
+func rowByColGetMatrixAlgo3b(resultMatrix *Matrix, colA, rowB *[]float64, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for i := range *rowB {
 		for j := range *colA {
-			
 			(*resultMatrix)[j][i] += (*rowB)[i] * (*colA)[j]
-			
 		}
 	}
 }
 
 func main() {
-	// a, b := makeMatrix(1024, 900), makeMatrix(900, 1400)
+	a, b := makeMatrix(1000, 1024), makeMatrix(1024, 900)
 	// a, b := makeMatrix(10, 5), makeMatrix(5, 11)
-	a := Matrix{{2,7}, {3,8}, {4,9}}
-	b := Matrix{{7,9,2,3}, {8,6,1,4}}
+	// a := Matrix{{2,7}, {3,8}, {4,9}}
+	// b := Matrix{{7,9,2,3}, {8,6,1,4}}
 
 	rowsa, rowsb := len(a), len(b)
 	colsa, colsb := len((a)[0]), len((b)[0])
@@ -158,6 +184,7 @@ func main() {
 
 	}
 	wg2.Wait()
+
 	elapsed2 := time.Since(start2)
 
 	fmt.Println("Finished algorithm 2. Elapsed Time: ", elapsed2)
@@ -170,41 +197,69 @@ func main() {
 
 	start3 := time.Now()
 
-	transposedA := transposeMat(a)
-
-	var wg3 sync.WaitGroup
-
 	resultMatrix3 := makeEmptyMatrix(rowsa, colsb)
 
-	wg3.Add(colsa)
+	transposedB = transposeMat(b) //transpose matrix b to make columns into rows
+	//ran again so that there isn't a bias in the timing
+	
+	var wg3 sync.WaitGroup
+
+	numColsInResultMatrix := colsb
+
+	wg3.Add(numColsInResultMatrix)
+	for i := 0; i < numColsInResultMatrix; i++ {
+		
+		go colByFullMatrixAlgo3(&transposedB[i], &a, &resultMatrix3, i, &wg3)
+
+	}
+	wg3.Wait()
+	
+	elapsed3 := time.Since(start3)
+	fmt.Println("Finished algorithm 3. Elapsed Time: ", elapsed3)
+
+	//end algorithm 3
+
+	//start algorithm 3b
+
+	fmt.Println("\nExtra Algorithm: ")
+
+	start3b := time.Now()
+
+	transposedA := transposeMat(a) 
+
+	var wg3b sync.WaitGroup
+
+	resultMatrix3b := makeEmptyMatrix(rowsa, colsb)
+
+	wg3b.Add(colsa)
 
 	for i := 0; i < colsa; i++ {
 		
 		colA := transposedA[i]
 		rowB := b[i]
-		go rowByColGetMatrixAlgo3(&resultMatrix3, &colA, &rowB, &wg3)
+		go rowByColGetMatrixAlgo3b(&resultMatrix3b, &colA, &rowB, &wg3b)
 
 	}
-	wg3.Wait()
 
-	// time.Sleep(time.Second * 2)
+	wg3b.Wait()
 
 	//wait?
 
-	elapsed3 := time.Since(start3)
-	fmt.Println("Finished algorithm 3. Elapsed Time: ", elapsed3)
+	elapsed3b := time.Since(start3b)
+	fmt.Println("Finished algorithm 3. Elapsed Time: ", elapsed3b)
 
-	//end algorithm 3
+	//end algorithm 3b
 
 	//test equality
 
 	fmt.Println("Check result 1: ", compareMatrices(&resultMatrix0, &resultMatrix1))
 	fmt.Println("Check result 2: ", compareMatrices(&resultMatrix0, &resultMatrix2))
 	fmt.Println("Check result 3: ", compareMatrices(&resultMatrix0, &resultMatrix3))
+	fmt.Println("Check result 3b: ", compareMatrices(&resultMatrix0, &resultMatrix3b))
 
-	if !compareMatrices(&resultMatrix0, &resultMatrix3) {
-		printMatrix(&resultMatrix3)
-	}
+	// if !compareMatrices(&resultMatrix0, &resultMatrix3) {
+	// 	printMatrix(&resultMatrix3)
+	// }
 }
 
 //Helper functions
