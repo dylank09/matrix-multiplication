@@ -82,10 +82,8 @@ func rowByColGetMatrixAlgo3b(resultMatrix *Matrix, colA, rowB *[]float64, wg *sy
 }
 
 func main() {
+
 	a, b := makeMatrix(1000, 1024), makeMatrix(1024, 900)
-	// a, b := makeMatrix(10, 5), makeMatrix(5, 11)
-	// a := Matrix{{2,7}, {3,8}, {4,9}}
-	// b := Matrix{{7,9,2,3}, {8,6,1,4}}
 
 	rowsa, rowsb := len(a), len(b)
 	colsa, colsb := len((a)[0]), len((b)[0])
@@ -94,8 +92,6 @@ func main() {
 		fmt.Println("Matrices cannot be multiplied!")
 		os.Exit(3)
 	}
-
-	// runtime.GOMAXPROCS(4)
 
 	//start sequential
 	fmt.Println("Sequential Algorithm")
