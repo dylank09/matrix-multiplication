@@ -5,15 +5,16 @@ import (
 	"math/rand"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
-type Matrix [][]float64
+type Matrix [][]int
 
-func rowByColAlgo1(currentRow, currentCol *[]float64, resultMatrix *Matrix, resultRowIndex, resultColIndex int, wg *sync.WaitGroup) {
+func rowByColAlgo1(currentRow, currentCol *[]int, resultMatrix *Matrix, resultRowIndex, resultColIndex int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	sum := 0.0
+	sum := 0
 	for i := range *currentRow {
 		sum += (*currentRow)[i] * (*currentCol)[i]
 	}
@@ -21,20 +22,20 @@ func rowByColAlgo1(currentRow, currentCol *[]float64, resultMatrix *Matrix, resu
 	(*resultMatrix)[resultRowIndex][resultColIndex] = sum //fills in the element in the resulting matrix by multiplying row of first matrix by column in second matrix
 }
 
-func rowByFullMatrixAlgo2(row *[]float64, matB, resultMatrix *Matrix, rowNum int, wg *sync.WaitGroup) {
+func rowByFullMatrixAlgo2(row *[]int, matB, resultMatrix *Matrix, rowNum int, wg *sync.WaitGroup) {
 	
 	defer wg.Done()
 
 	numColsInB := len(*matB)
 
-	result := make([] float64, numColsInB) //new row will be same size as row in mat A
-	sum := 0.0
+	result := make([] int, numColsInB) //new row will be same size as row in mat A
+	sum := 0
 	for i := 0; i < numColsInB; i++ {
 
 		currentColData := (*matB)[i]
 
 		//multiply the row by the current column to get an element
-		sum = 0.0
+		sum = 0
 		for k, r := range *row {
 			sum += r * currentColData[k]
 		}
@@ -45,18 +46,18 @@ func rowByFullMatrixAlgo2(row *[]float64, matB, resultMatrix *Matrix, rowNum int
 
 }
 
-func colByFullMatrixAlgo3(col *[]float64, matA, resultMatrix *Matrix, colNum int, wg *sync.WaitGroup) {
+func colByFullMatrixAlgo3(col *[]int, matA, resultMatrix *Matrix, colNum int, wg *sync.WaitGroup) {
 
 	numRowsInA := len(*matA)
 
-	result := make([] float64, numRowsInA) //new col will be same size as row in mat A
-	sum := 0.0
+	result := make([] int, numRowsInA) //new col will be same size as row in mat A
+	sum := 0
 	for i := 0; i < numRowsInA; i++ {
 
 		currentRowData := (*matA)[i]
 
 		//multiply the row by the current column to get an element
-		sum = 0.0
+		sum = 0
 		for index, c := range *col {
 			sum += c * currentRowData[index]
 		}
@@ -71,12 +72,13 @@ func colByFullMatrixAlgo3(col *[]float64, matA, resultMatrix *Matrix, colNum int
 	wg.Done()
 }
 
-func rowByColGetMatrixAlgo3b(resultMatrix *Matrix, colA, rowB *[]float64, wg *sync.WaitGroup) {
+func rowByColGetMatrixAlgo3b(resultMatrix *[][]int64, colA, rowB *[]int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for i := range *rowB {
 		for j := range *colA {
-			(*resultMatrix)[j][i] += (*rowB)[i] * (*colA)[j]
+			atomic.AddInt64(&(*resultMatrix)[j][i], int64((*rowB)[i] * (*colA)[j]))
+			// (*resultMatrix)[j][i] += (*rowB)[i] * (*colA)[j]
 		}
 	}
 }
@@ -85,7 +87,7 @@ func main() {
 
 	rand.Seed(time.Now().UnixNano())
 
-	a, b := makeMatrix(1000, 1024), makeMatrix(1024, 900)
+	a, b := makeMatrix(1000, 1024), makeMatrix(1024, 1500)
 
 	rowsa, rowsb := len(a), len(b)
 	colsa, colsb := len((a)[0]), len((b)[0])
@@ -102,10 +104,10 @@ func main() {
 
 	resultMatrix0 := makeEmptyMatrix(rowsa, colsb)
 
-	sum := 0.0
+	sum := 0
 	for i := 0; i < rowsa; i++ {
 		for j := 0; j < colsb; j++ {
-			sum = 0.0
+			sum = 0
 			for k := 0; k < rowsb; k++ {
 				sum += a[i][k]*b[k][j]
 			}
@@ -227,7 +229,7 @@ func main() {
 
 	var wg3b sync.WaitGroup
 
-	resultMatrix3b := makeEmptyMatrix(rowsa, colsb)
+	resultMatrix3bInt64 := makeEmptyMatrixWithInt64(rowsa, colsb)
 
 	wg3b.Add(colsa)
 
@@ -235,16 +237,20 @@ func main() {
 		
 		colA := transposedA[i]
 		rowB := b[i]
-		go rowByColGetMatrixAlgo3b(&resultMatrix3b, &colA, &rowB, &wg3b)
+		go rowByColGetMatrixAlgo3b(&resultMatrix3bInt64, &colA, &rowB, &wg3b)
 
 	}
 
 	wg3b.Wait()
 
+	var resultMatrix3b Matrix
+
+	resultMatrix3b = convertInt64MatrixToIntMatrix(resultMatrix3bInt64)
+
 	//wait?
 
 	elapsed3b := time.Since(start3b)
-	fmt.Println("Finished algorithm 3. Elapsed Time: ", elapsed3b)
+	fmt.Print("\nFinished algorithm 3. Elapsed Time: ", elapsed3b, "\n\n")
 
 	//end algorithm 3b
 
@@ -274,11 +280,11 @@ func printMatrix(m* Matrix) {
 
 func makeMatrix(rows, cols int) (m Matrix) {
 
-	m = make([][]float64, rows)
+	m = make([][]int, rows)
 	for i := range m {
-		m[i] = make([]float64, cols)
+		m[i] = make([]int, cols)
 		for j := range m[i] {
-			m[i][j] = float64(rand.Intn(100))
+			m[i][j] = int(rand.Intn(100))
 		}
 	}
 	return
@@ -308,12 +314,33 @@ func transposeMat(m Matrix) Matrix {
 }
 
 func makeEmptyMatrix(rows, cols int) Matrix {
-	m := make([][]float64, rows)
+	m := make([][]int, rows)
 	for i := range m {
-		m[i] = make([]float64, cols)
+		m[i] = make([]int, cols)
 		for j := range m[i] {
 			m[i][j] = 0
 		}
 	}
 	return m
+}
+
+func makeEmptyMatrixWithInt64(rows, cols int) [][]int64 {
+	m := make([][]int64, rows)
+	for i := range m {
+		m[i] = make([]int64, cols)
+		for j := range m[i] {
+			m[i][j] = 0
+		}
+	}
+	return m
+}
+
+func convertInt64MatrixToIntMatrix(m [][]int64) Matrix {
+	mat := makeEmptyMatrix(len(m), len(m[0]))
+	for i := range m {
+		for j := range m[i] {
+			mat[i][j] = int(m[i][j])
+		}
+	}
+	return mat
 }

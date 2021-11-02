@@ -72,19 +72,11 @@ func colByFullMatrixAlgo3(col *[]float64, matA, resultMatrix *Matrix, colNum int
 	wg.Done()
 }
 
-func rowByColGetMatrixAlgo3b(resultMatrix *Matrix, colA, rowB *[]float64, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	for i := range *rowB {
-		for j := range *colA {
-			(*resultMatrix)[j][i] += (*rowB)[i] * (*colA)[j]
-		}
-	}
-}
-
 func main() {
 
 	maxCPUs := runtime.NumCPU()
+
+	rand.Seed(time.Now().UnixNano())
 
 	a, b := makeMatrix(1000, 1024), makeMatrix(1024, 900)
 
