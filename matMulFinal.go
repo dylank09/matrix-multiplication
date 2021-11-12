@@ -1,9 +1,12 @@
+// "A1" Dylan Kearney (18227023) and Cyiaph McCann (17233453)
+
 package main
 
 import (
 	"fmt"
 	"math/rand"
 	"os"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -78,16 +81,17 @@ func rowByColGetMatrixAlgo3b(resultMatrix *[][]int64, colA, rowB *[]int, wg *syn
 	for i := range *rowB {
 		for j := range *colA {
 			atomic.AddInt64(&(*resultMatrix)[j][i], int64((*rowB)[i] * (*colA)[j]))
-			// (*resultMatrix)[j][i] += (*rowB)[i] * (*colA)[j]
 		}
 	}
 }
 
 func main() {
 
+	maxCPUs := runtime.NumCPU()
+	
 	rand.Seed(time.Now().UnixNano())
 
-	a, b := makeMatrix(1000, 1024), makeMatrix(1024, 1500)
+	a, b := makeMatrix(1000, 1024), makeMatrix(1024, 1200)
 
 	rowsa, rowsb := len(a), len(b)
 	colsa, colsb := len((a)[0]), len((b)[0])
@@ -121,8 +125,14 @@ func main() {
 
 	//end sequential
 
+
+	runtime.GOMAXPROCS(maxCPUs)
+
+	fmt.Println("\n------------ Perform algorithms with max number of CPUs: ", maxCPUs, "---------------")
+
+
 	//start algorithm 1
-	fmt.Println("\nFirst Algorithm")
+	fmt.Println("\nFirst Algorithm: Row by Column to get each element of result matrix.")
 	
 	start1 := time.Now()
 
@@ -165,7 +175,7 @@ func main() {
 
 	//start algorithm 2
 	
-	fmt.Println("\n\nSecond Algorithm: ")
+	fmt.Println("\n\nSecond Algorithm: Row of A by Full matrix B to get a resulting row in C ")
 
 	start2 := time.Now()
 
@@ -178,6 +188,7 @@ func main() {
 	var wg2 sync.WaitGroup
 
 	wg2.Add(numRowsInResultMatrix)
+	
 	for i := 0; i < numRowsInResultMatrix; i++ {
 		
 		go rowByFullMatrixAlgo2(&a[i], &transposedB, &resultMatrix2, i, &wg2)
@@ -193,7 +204,7 @@ func main() {
 
 	//start algorithm 3
 
-	fmt.Println("\nThird Algorithm: ")
+	fmt.Println("\nThird Algorithm: Column of A by full matrix B to get a column in C")
 
 	start3 := time.Now()
 
@@ -221,7 +232,7 @@ func main() {
 
 	//start algorithm 3b
 
-	fmt.Println("\nExtra Algorithm: ")
+	fmt.Println("\n3B Algorithm: Row of A by Colum of B to get a matrix, then sum the elements of all these matrices to get the final Matrix C")
 
 	start3b := time.Now()
 
@@ -250,7 +261,7 @@ func main() {
 	//wait?
 
 	elapsed3b := time.Since(start3b)
-	fmt.Print("\nFinished algorithm 3. Elapsed Time: ", elapsed3b, "\n\n")
+	fmt.Print("Finished algorithm 3b. Elapsed Time: ", elapsed3b, "\n\n")
 
 	//end algorithm 3b
 
@@ -261,9 +272,142 @@ func main() {
 	fmt.Println("Check result 3: ", compareMatrices(&resultMatrix0, &resultMatrix3))
 	fmt.Println("Check result 3b: ", compareMatrices(&resultMatrix0, &resultMatrix3b))
 
-	// if !compareMatrices(&resultMatrix0, &resultMatrix3) {
-	// 	printMatrix(&resultMatrix3)
-	// }
+
+	runtime.GOMAXPROCS(1) //use just one CPU
+
+	fmt.Println("\n------------ Perform algorithms with one CPU ---------------")
+	
+
+	//start algorithm 1 again now with one CPU
+	fmt.Println("\nFirst Algorithm: Row by Column to get each element of result matrix.")
+	
+	start1 = time.Now()
+
+	transposedB = transposeMat(b) //transpose matrix b to make columns into rows
+
+	resultMatrix1 = makeEmptyMatrix(rowsa, colsb)
+
+	numElementsInResultMatrix = rowsa * colsb
+	currentRowIndex = 0
+	currentCol = 0
+
+	wg1.Add(numElementsInResultMatrix)
+
+	for i := 0; i < numElementsInResultMatrix; i++ {
+		if i != 0 && i % colsb == 0 { //*
+			currentRowIndex += 1
+		} 
+
+		if currentCol >= colsb {
+			currentCol = 0
+		}
+
+		currentColData := transposedB[currentCol]
+
+		go rowByColAlgo1(&a[currentRowIndex], &currentColData, &resultMatrix1, currentRowIndex, currentCol, &wg1)
+
+		currentCol += 1
+
+	}
+
+	wg1.Wait()
+
+	elapsed1 = time.Since(start1)
+	
+	fmt.Println("Finished algorithm 1. Elapsed Time: ", elapsed1)
+
+	//end algorithm 1
+
+	//start algorithm 2
+	
+	fmt.Println("\n\nSecond Algorithm: Row of A by Full matrix B to get a resulting row in C ")
+
+	start2 = time.Now()
+
+	transposedB = transposeMat(b) //transpose matrix b to make columns into rows
+
+	resultMatrix2 = makeEmptyMatrix(rowsa, colsb)
+
+	numRowsInResultMatrix = rowsa
+
+	wg2.Add(numRowsInResultMatrix)
+	for i := 0; i < numRowsInResultMatrix; i++ {
+		
+		go rowByFullMatrixAlgo2(&a[i], &transposedB, &resultMatrix2, i, &wg2)
+
+	}
+	wg2.Wait()
+
+	elapsed2 = time.Since(start2)
+
+	fmt.Println("Finished algorithm 2. Elapsed Time: ", elapsed2)
+
+	//end algorithm 2
+
+	//start algorithm 3
+
+	fmt.Println("\nThird Algorithm: Column of A by full matrix B to get a column in C")
+
+	start3 = time.Now()
+
+	resultMatrix3 = makeEmptyMatrix(rowsa, colsb)
+
+	transposedB = transposeMat(b) //transpose matrix b to make columns into rows
+	//ran again so that there isn't a bias in the timing
+
+	numColsInResultMatrix = colsb
+
+	wg3.Add(numColsInResultMatrix)
+	for i := 0; i < numColsInResultMatrix; i++ {
+		
+		go colByFullMatrixAlgo3(&transposedB[i], &a, &resultMatrix3, i, &wg3)
+
+	}
+	wg3.Wait()
+	
+	elapsed3 = time.Since(start3)
+	fmt.Println("Finished algorithm 3. Elapsed Time: ", elapsed3)
+
+	//end algorithm 3
+
+	//start algorithm 3b
+
+	fmt.Println("\n3B Algorithm: Row of A by Colum of B to get a matrix, then sum the elements of all these matrices to get the final Matrix C")
+
+	start3b = time.Now()
+
+	transposedA = transposeMat(a) 
+
+	resultMatrix3bInt64 = makeEmptyMatrixWithInt64(rowsa, colsb)
+
+	wg3b.Add(colsa)
+
+	for i := 0; i < colsa; i++ {
+		
+		colA := transposedA[i]
+		rowB := b[i]
+		go rowByColGetMatrixAlgo3b(&resultMatrix3bInt64, &colA, &rowB, &wg3b)
+
+	}
+
+	wg3b.Wait()
+
+	resultMatrix3b = convertInt64MatrixToIntMatrix(resultMatrix3bInt64)
+
+	//wait?
+
+	elapsed3b = time.Since(start3b)
+	fmt.Print("Finished algorithm 3b. Elapsed Time: ", elapsed3b, "\n\n")
+
+	//end algorithm 3b
+
+	//test equality
+
+	fmt.Println("Check result 1: ", compareMatrices(&resultMatrix0, &resultMatrix1))
+	fmt.Println("Check result 2: ", compareMatrices(&resultMatrix0, &resultMatrix2))
+	fmt.Println("Check result 3: ", compareMatrices(&resultMatrix0, &resultMatrix3))
+	fmt.Println("Check result 3b: ", compareMatrices(&resultMatrix0, &resultMatrix3b))
+
 }
 
 //Helper functions

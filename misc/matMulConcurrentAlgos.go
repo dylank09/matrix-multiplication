@@ -11,14 +11,15 @@ import (
 type Matrix [][]float64
 
 func rowByColAlgo1(currentRow, currentCol *[]float64, resultMatrix *Matrix, resultRowIndex, resultColIndex int, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+	
 	sum := 0.0
-	for i := range *currentRow {
+	for i := range *currentRow { // multiply row of first matrix by column in second matrix
 		sum += (*currentRow)[i] * (*currentCol)[i]
 	}
-
-	(*resultMatrix)[resultRowIndex][resultColIndex] = sum //fills in the element in the resulting matrix by multiplying row of first matrix by column in second matrix
+	
+	(*resultMatrix)[resultRowIndex][resultColIndex] = sum //fills in the element in the resulting matrix 
+	
+	wg.Done()
 }
 
 func rowByFullMatrixAlgo2(row *[]float64, matB, resultMatrix *Matrix, rowNum int, wg *sync.WaitGroup) {
@@ -27,21 +28,19 @@ func rowByFullMatrixAlgo2(row *[]float64, matB, resultMatrix *Matrix, rowNum int
 
 	numColsInB := len(*matB)
 
-	result := make([] float64, numColsInB) //new row will be same size as row in mat A
 	sum := 0.0
 	for i := 0; i < numColsInB; i++ {
 
 		currentColData := (*matB)[i]
 
-		//multiply the row by the current column to get an element
+		//multiply the row by the current column to get an element in resulting row
 		sum = 0.0
-		for k, r := range *row {
-			sum += r * currentColData[k]
+		for index, val := range *row {
+			sum += val * currentColData[index]
 		}
-		result[i] = sum
 		
+		(*resultMatrix)[rowNum][i] = sum //fills in the elements of row in the resulting matrix
 	}
-	(*resultMatrix)[rowNum] = result //returns full returning row on the new matrix
 
 }
 
@@ -49,7 +48,7 @@ func colByFullMatrixAlgo3(col *[]float64, matA, resultMatrix *Matrix, colNum int
 
 	numRowsInA := len(*matA)
 
-	result := make([] float64, numRowsInA) //new col will be same size as row in mat A
+	// result := make([] float64, numRowsInA) //new col will be same size as row in mat A
 	sum := 0.0
 	for i := 0; i < numRowsInA; i++ {
 
@@ -60,12 +59,9 @@ func colByFullMatrixAlgo3(col *[]float64, matA, resultMatrix *Matrix, colNum int
 		for index, c := range *col {
 			sum += c * currentRowData[index]
 		}
-		result[i] = sum
-		
-	}
 
-	for index, val := range result {
-		(*resultMatrix)[index][colNum] = val
+		(*resultMatrix)[i][colNum] = sum //put the result straight into the result matrix column
+		
 	}
 
 	wg.Done()
@@ -76,7 +72,7 @@ func rowByColGetMatrixAlgo3b(resultMatrix *Matrix, colA, rowB *[]float64, wg *sy
 
 	for i := range *rowB {
 		for j := range *colA {
-			(*resultMatrix)[j][i] += (*rowB)[i] * (*colA)[j]
+			(*resultMatrix)[j][i] += (*rowB)[i] * (*colA)[j] //add to current value
 		}
 	}
 }
@@ -96,11 +92,12 @@ func main() {
 	}
 
 	//start sequential
+
 	fmt.Println("Sequential Algorithm")
 	
 	start0 := time.Now()
 
-	resultMatrix0 := makeEmptyMatrix(rowsa, colsb)
+	sequentialMat := makeEmptyMatrix(rowsa, colsb)
 
 	sum := 0.0
 	for i := 0; i < rowsa; i++ {
@@ -109,7 +106,7 @@ func main() {
 			for k := 0; k < rowsb; k++ {
 				sum += a[i][k]*b[k][j]
 			}
-			resultMatrix0[i][j] = sum
+			sequentialMat[i][j] = sum
 		}
 	}
 	
@@ -117,14 +114,15 @@ func main() {
 	
 	fmt.Println("Finished sequential. Elapsed Time: ", elapsed0)
 
-	//end sequential
+	//end sequential --------------------------------------------------------
 
 	//start algorithm 1
+
 	fmt.Println("\nFirst Algorithm")
 	
 	start1 := time.Now()
 
-	transposedB := transposeMat(b) //transpose matrix b to make columns into rows
+	transposedB := transposeMatrix(b) //transpose matrix b to make columns into rows
 
 	resultMatrix1 := makeEmptyMatrix(rowsa, colsb)
 
@@ -159,7 +157,7 @@ func main() {
 	
 	fmt.Println("Finished algorithm 1. Elapsed Time: ", elapsed1)
 
-	//end algorithm 1
+	//end algorithm 1 --------------------------------------------------------
 
 	//start algorithm 2
 	
@@ -167,7 +165,7 @@ func main() {
 
 	start2 := time.Now()
 
-	transposedB = transposeMat(b) //transpose matrix b to make columns into rows
+	transposedB = transposeMatrix(b) //transpose matrix b to make columns into rows
 
 	resultMatrix2 := makeEmptyMatrix(rowsa, colsb)
 
@@ -176,18 +174,20 @@ func main() {
 	var wg2 sync.WaitGroup
 
 	wg2.Add(numRowsInResultMatrix)
+
 	for i := 0; i < numRowsInResultMatrix; i++ {
 		
 		go rowByFullMatrixAlgo2(&a[i], &transposedB, &resultMatrix2, i, &wg2)
 
 	}
+	
 	wg2.Wait()
 
 	elapsed2 := time.Since(start2)
 
 	fmt.Println("Finished algorithm 2. Elapsed Time: ", elapsed2)
 
-	//end algorithm 2
+	//end algorithm 2 --------------------------------------------------------
 
 	//start algorithm 3
 
@@ -197,7 +197,7 @@ func main() {
 
 	resultMatrix3 := makeEmptyMatrix(rowsa, colsb)
 
-	transposedB = transposeMat(b) //transpose matrix b to make columns into rows
+	transposedB = transposeMatrix(b) //transpose matrix b to make columns into rows
 	//ran again so that there isn't a bias in the timing
 	
 	var wg3 sync.WaitGroup
@@ -215,7 +215,7 @@ func main() {
 	elapsed3 := time.Since(start3)
 	fmt.Println("Finished algorithm 3. Elapsed Time: ", elapsed3)
 
-	//end algorithm 3
+	//end algorithm 3 --------------------------------------------------------
 
 	//start algorithm 3b
 
@@ -223,7 +223,7 @@ func main() {
 
 	start3b := time.Now()
 
-	transposedA := transposeMat(a) 
+	transposedA := transposeMatrix(a) 
 
 	var wg3b sync.WaitGroup
 
@@ -241,23 +241,17 @@ func main() {
 
 	wg3b.Wait()
 
-	//wait?
-
 	elapsed3b := time.Since(start3b)
 	fmt.Println("Finished algorithm 3. Elapsed Time: ", elapsed3b)
 
-	//end algorithm 3b
+	//end algorithm 3b --------------------------------------------------------
 
 	//test equality
 
-	fmt.Println("Check result 1: ", compareMatrices(&resultMatrix0, &resultMatrix1))
-	fmt.Println("Check result 2: ", compareMatrices(&resultMatrix0, &resultMatrix2))
-	fmt.Println("Check result 3: ", compareMatrices(&resultMatrix0, &resultMatrix3))
-	fmt.Println("Check result 3b: ", compareMatrices(&resultMatrix0, &resultMatrix3b))
-
-	// if !compareMatrices(&resultMatrix0, &resultMatrix3) {
-	// 	printMatrix(&resultMatrix3)
-	// }
+	fmt.Println("Check result 1: ", compareMatrices(&sequentialMat, &resultMatrix1))
+	fmt.Println("Check result 2: ", compareMatrices(&sequentialMat, &resultMatrix2))
+	fmt.Println("Check result 3: ", compareMatrices(&sequentialMat, &resultMatrix3))
+	fmt.Println("Check result 3b: ", compareMatrices(&sequentialMat, &resultMatrix3b))
 }
 
 //Helper functions
@@ -272,8 +266,8 @@ func printMatrix(m* Matrix) {
 	fmt.Print("\n")
 }
 
-func makeMatrix(rows, cols int) (m Matrix) {
-
+//make a matix with specific dimensions filled with random numbers
+func makeMatrix(rows, cols int) (m Matrix) { 
 	m = make([][]float64, rows)
 	for i := range m {
 		m[i] = make([]float64, cols)
@@ -284,8 +278,9 @@ func makeMatrix(rows, cols int) (m Matrix) {
 	return
 }
 
+//compare two matrices element by element and if any one is different, return false
 func compareMatrices(a, b *Matrix) bool {
-	//assumes the matrices are the same dimensions
+	//this function assumes the matrices are the same dimensions
 	result := true
 	for i := 0; i < len(*a); i++ {
 		for j := 0; j < len((*a)[i]); j++ {
@@ -297,7 +292,8 @@ func compareMatrices(a, b *Matrix) bool {
 	return result
 }
 
-func transposeMat(m Matrix) Matrix {
+//turn a matrix on it's side --> matrix columns become it's rows
+func transposeMatrix(m Matrix) Matrix {
 	transposedM := makeEmptyMatrix(len(m[0]), len(m))
 	for i, rows := range m {
 		for j:= range rows {
@@ -307,6 +303,7 @@ func transposeMat(m Matrix) Matrix {
 	return transposedM
 }
 
+//fill a matrix with zeros instead of random numbers
 func makeEmptyMatrix(rows, cols int) Matrix {
 	m := make([][]float64, rows)
 	for i := range m {
