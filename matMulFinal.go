@@ -1,5 +1,3 @@
-// "A1" Dylan Kearney (18227023) and Cyiaph McCann (17233453)
-
 package main
 
 import (
